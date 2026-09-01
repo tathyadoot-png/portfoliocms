@@ -66,7 +66,7 @@ export function ActivityCoverManager({
       alt={media?.alt_text_en ?? 'Activity cover'}
       accept={MEDIA_ACCEPTED_IMAGE_TYPES}
       maxSizeBytes={MEDIA_MAX_IMAGE_SIZE_BYTES}
-      aspectClassName="aspect-video max-w-sm"
+      aspectClassName="aspect-video w-full max-w-sm"
       onUploadSuccess={async (result) => {
         await replaceMutation.mutateAsync(result)
         toast.success('Cover updated')

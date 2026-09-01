@@ -116,7 +116,7 @@ export function ActivityGalleryManager({
           .join('/')}
         accept={MEDIA_ACCEPTED_IMAGE_TYPES}
         maxSizeBytes={MEDIA_MAX_IMAGE_SIZE_BYTES}
-        aspectClassName="aspect-video max-w-xs"
+        aspectClassName="aspect-video w-full max-w-xs"
         uploadLabel="Add gallery images"
         multiple
         onUploadSuccess={async (result) => {

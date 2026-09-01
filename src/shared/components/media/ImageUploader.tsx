@@ -134,7 +134,7 @@ export function ImageUploader({
     <div className={cn('flex flex-col gap-3', className)}>
       <div
         className={cn(
-          'relative flex w-full max-w-xs items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted',
+          'relative flex w-full max-w-full items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted sm:max-w-xs',
           aspectClassName,
         )}
       >

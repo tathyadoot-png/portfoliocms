@@ -38,7 +38,7 @@ export function ActivityCreatePage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto w-full min-w-0 max-w-3xl">
       <Link
         to={ROUTES.portfolios.activities(portfolio.id)}
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -49,7 +49,7 @@ export function ActivityCreatePage() {
 
       <PageHeader
         title="New activity"
-        description="Drafts can be incomplete. Publishing requires English and Hindi titles and descriptions plus an activity date."
+        description="New activities default to Published and Featured. English and Hindi titles and descriptions plus an activity date are required to publish."
       />
 
       <ActivityForm

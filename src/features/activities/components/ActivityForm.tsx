@@ -68,7 +68,10 @@ export function ActivityForm({
   const titleField = register('title_en')
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="flex min-w-0 w-full flex-col gap-6"
+    >
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Basic information</CardTitle>
@@ -94,7 +97,7 @@ export function ActivityForm({
         <CardHeader>
           <CardTitle className="text-base">English content</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex min-w-0 flex-col gap-4">
           <FormField
             htmlFor="title_en"
             label="Title (English)"
@@ -122,7 +125,8 @@ export function ActivityForm({
           >
             <Textarea
               id="description_en"
-              rows={6}
+              rows={5}
+              className="min-h-[8rem] max-h-80 w-full resize-y break-words"
               {...register('description_en')}
             />
           </FormField>
@@ -133,7 +137,7 @@ export function ActivityForm({
         <CardHeader>
           <CardTitle className="text-base">Hindi content</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex min-w-0 flex-col gap-4">
           <FormField
             htmlFor="title_hi"
             label="Title (Hindi)"
@@ -150,7 +154,8 @@ export function ActivityForm({
           >
             <Textarea
               id="description_hi"
-              rows={6}
+              rows={5}
+              className="min-h-[8rem] max-h-80 w-full resize-y break-words"
               {...register('description_hi')}
             />
           </FormField>
@@ -161,40 +166,33 @@ export function ActivityForm({
         <CardHeader>
           <CardTitle className="text-base">Date & location</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid min-w-0 gap-4 sm:grid-cols-2">
           <FormField
             htmlFor="activity_date"
             label="Activity date"
-            hint="Used for sorting and filtering. Required to publish."
+            hint="The single date for this activity. Used for sorting, filtering, and public display. Required to publish."
             error={errors.activity_date?.message}
           >
             <Input
               id="activity_date"
               type="date"
+              className="min-w-0"
               {...register('activity_date')}
             />
-          </FormField>
-          <FormField
-            htmlFor="display_date"
-            label="Display date"
-            hint="Human-readable only (for example “24 जुलाई 2026”). Never used for sorting."
-            error={errors.display_date?.message}
-          >
-            <Input id="display_date" {...register('display_date')} />
           </FormField>
           <FormField
             htmlFor="location_en"
             label="Location (English)"
             error={errors.location_en?.message}
           >
-            <Input id="location_en" {...register('location_en')} />
+            <Input id="location_en" className="min-w-0" {...register('location_en')} />
           </FormField>
           <FormField
             htmlFor="location_hi"
             label="Location (Hindi)"
             error={errors.location_hi?.message}
           >
-            <Input id="location_hi" {...register('location_hi')} />
+            <Input id="location_hi" className="min-w-0" {...register('location_hi')} />
           </FormField>
         </CardContent>
       </Card>
@@ -204,7 +202,7 @@ export function ActivityForm({
           <CardTitle className="text-base">Publishing</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             <FormField
               htmlFor="status"
               label="Status"
@@ -214,11 +212,11 @@ export function ActivityForm({
               <select
                 id="status"
                 {...register('status')}
-                className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-9 w-full min-w-0 rounded-md border border-input bg-card px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {ACTIVITY_STATUSES.map((value) => (
                   <option key={value} value={value}>
-                    {value}
+                    {value.charAt(0).toUpperCase() + value.slice(1)}
                   </option>
                 ))}
               </select>
@@ -236,6 +234,7 @@ export function ActivityForm({
               <Input
                 id="publish_at"
                 type="datetime-local"
+                className="min-w-0"
                 {...register('publish_at')}
               />
             </FormField>
@@ -290,7 +289,7 @@ export function ActivityForm({
         <CardHeader>
           <CardTitle className="text-base">Additional settings</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid min-w-0 gap-4 sm:grid-cols-2">
           <label className="flex items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
@@ -309,14 +308,19 @@ export function ActivityForm({
               id="sort_order"
               type="number"
               min={0}
+              className="min-w-0"
               {...register('sort_order', { valueAsNumber: true })}
             />
           </FormField>
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
-        <Button type="submit" disabled={isSubmitting}>
+      <div className="flex justify-stretch sm:justify-end">
+        <Button
+          type="submit"
+          className="w-full sm:w-auto"
+          disabled={isSubmitting}
+        >
           {isSubmitting ? <Spinner /> : null}
           {submitLabel}
         </Button>

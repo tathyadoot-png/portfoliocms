@@ -86,7 +86,7 @@ export function ActivityEditPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto w-full min-w-0 max-w-3xl">
       <Link
         to={ROUTES.portfolios.activities(portfolio.id)}
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -131,7 +131,7 @@ export function ActivityEditPage() {
             <CardTitle className="text-base">Metadata</CardTitle>
           </CardHeader>
           <CardContent>
-            <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-muted-foreground">Status</dt>
                 <dd className="capitalize">{data.status}</dd>

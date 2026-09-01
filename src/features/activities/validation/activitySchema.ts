@@ -32,7 +32,6 @@ export const activityFormSchema = z
     location_en: z.string().max(200, 'English location is too long'),
     location_hi: z.string().max(200, 'Hindi location is too long'),
     activity_date: z.string(),
-    display_date: z.string().max(120, 'Display date is too long'),
     status: z.enum(ACTIVITY_STATUS_VALUES),
     publish_at: z.string(),
     is_featured: z.boolean(),

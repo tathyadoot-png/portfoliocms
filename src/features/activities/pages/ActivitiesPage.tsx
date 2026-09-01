@@ -143,7 +143,7 @@ export function ActivitiesPage() {
         <EmptyState
           icon={<CalendarDays className="h-8 w-8" />}
           title="No activities yet"
-          description="Create a draft, add English and Hindi content, then publish when it is ready."
+          description="Create an activity with English and Hindi content. New activities default to published."
           action={
             <Link
               to={ROUTES.portfolios.activityNew(portfolio.id)}

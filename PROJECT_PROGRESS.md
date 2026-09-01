@@ -6,9 +6,9 @@ Living implementation history. If this file and the code disagree, **the code is
 
 ## Current state
 
-**Phase 7 (Social Links CRUD) is complete.** The CMS can list/create/edit/delete/hide/reorder per-portfolio social links on the existing `social_links` table. GRANT migration `20260825180012` is applied on the hosted project (`authenticated` only; `anon` revoked; RLS unchanged).
+**Phase 7 (Social Links CRUD) is complete.** Anon public-read is in place. Activity create/edit UI was tightened (display date removed, published/featured defaults, responsive form). Sampatiya website integration remains a separate repo.
 
-Next planned work: **Phase 8 — CMS polish / production hardening** (SEO UI still not scheduled).
+Next planned work: Sampatiya Activities integration (separate repo). CMS Phase 8 polish remains unscheduled.
 
 ---
 
@@ -22,7 +22,8 @@ Next planned work: **Phase 8 — CMS polish / production hardening** (SEO UI sti
 | 4 | CMS foundation: auth, portfolios, routing, layouts, Supabase client |
 | 5 | Portfolio Profile, Settings, Cloudinary Settings, Media foundation |
 | **6** | **Activities CMS** |
-| **7** | **Social Links CRUD (this phase)** |
+| **7** | **Social Links CRUD** |
+| **9 blocker** | **Anon public SELECT on portfolios/activities/media** |
 
 ---
 
@@ -294,8 +295,143 @@ Router/route path was already wired; not changed.
 
 ---
 
+## Phase 9 blocker — anon public read (portfolios / activities / media)
+
+### Why
+
+The Sampatiya public website (separate repo) reads this same Supabase project with the **anon/publishable** key. It failed with `42501 permission denied for schema public` because `anon` had **no USAGE on schema public** and **no table SELECT**. Authenticated CMS access was already working.
+
+This is not Sampatiya frontend integration. It only unblocks public SELECT.
+
+### What was granted to anon
+
+- `GRANT USAGE ON SCHEMA public TO anon` (not CREATE)
+- `GRANT SELECT` on `public.portfolios`, `public.activities`, `public.media` only
+- No INSERT/UPDATE/DELETE for anon
+- Authenticated table privileges unchanged
+- `social_links`, `cloudinary_configs`, `portfolio_settings`, `seo_meta` remain un-granted to anon
+
+### RLS policies added (SELECT only; not `USING (true)`)
+
+- `portfolios_anon_select_active` — `status = 'active' AND deleted_at IS NULL`
+- `activities_anon_select_published` — `status = 'published' AND deleted_at IS NULL` and parent portfolio is active/non-deleted
+- `media_anon_select_public` — `deleted_at IS NULL`, parent portfolio is active/non-deleted, and if `activity_id` is set the activity is published/non-deleted
+
+Existing `*_authenticated_all` policies were not modified.
+
+### Public data vs private
+
+**Public:** active non-deleted portfolios; published non-deleted activities on those portfolios; non-deleted media of those portfolios (portfolio-level profile/cover/favicon, plus cover/gallery of published activities).
+
+**Private to anon:** drafts, scheduled, archived, soft-deleted activities; inactive/deleted portfolios; media of drafts or deleted rows; social links, Cloudinary config, portfolio settings, SEO.
+
+### Migration
+
+`supabase/migrations/20260826120013_grant_anon_public_read_access.sql`  
+Recorded in `supabase_migrations.schema_migrations` as `20260826120013`.  
+`supabase db push --linked` still fails on this project’s CLI login role; the migration SQL was applied via the Management API (same path as the earlier GRANT migrations) — not ad-hoc Dashboard SQL.
+
+### Verification
+
+- Anon schema USAGE true; SELECT true; INSERT/UPDATE/DELETE false on the three tables
+- All 9 anon write attempts (insert/update/delete × 3 tables) → permission denied
+- Rolled-back filter test: published activity 1; draft/scheduled/archived/deleted/inactive-portfolio 0; public portfolio cover + published activity cover 1 each; draft cover + deleted media 0; leftover probe rows 0
+- PostgREST with publishable key: SELECT portfolios returns the active test portfolio; INSERT portfolios denied
+- Authenticated still reads CMS tables (portfolios, activities, media, social_links, cloudinary_configs, portfolio_settings)
+- `npx tsc -b --noEmit`, `npm run lint`, `npm run build` — pass
+
+### Files
+
+Created: `supabase/migrations/20260826120013_grant_anon_public_read_access.sql`  
+Modified: `supabase/policies/{portfolios,activities,media}.md`, `PROJECT_CONTEXT.md`, `PROJECT_PROGRESS.md`
+
+No CMS application code, no Sampatiya website code.
+
+---
+
+## Activity form + CMS freshness (this task)
+
+### 1. Supabase freshness investigation
+
+Inspected: `src/shared/lib/supabase/client.ts`, `src/shared/lib/query-client.ts`, `STALE_TIME`, activity/media/portfolio query hooks, mutation `invalidateQueries`, hosted project status.
+
+### 2. Actual root cause of “7–9 day delay”
+
+**Not CMS React Query cache.** Evidence:
+
+- Default `staleTime` is 5 minutes (`STALE_TIME.medium`); activity list/detail use 30 seconds (`STALE_TIME.short`).
+- `gcTime` is TanStack Query v5 default (~5 minutes). That cannot hide writes for days.
+- Create/update mutations invalidate `activityKeys` for the current `portfolioId` immediately.
+- The hosted project `ymxpboccinislragdrnz` was `ACTIVE_HEALTHY` during this inspection.
+- Writes go straight to Postgres via the authenticated client. After the Phase 9 anon SELECT policies, the public site reads the same rows live — there is no CMS-side “hold for a week.”
+
+A 7–9 day lag **matches Supabase Free-plan inactivity pause** (pause after ~7 days idle, then slow wake), but **that was not verified as this project’s billing plan** (org plan fields were empty in the Management API). Pause would make the API fail until wake, not silently delay a successful write.
+
+Other CMS-side contributors that *can* make new activities “not show” on the public site immediately (and were addressed below):
+
+- New activities defaulted to **draft**, which anon RLS does **not** return.
+- `display_date` was a second, optional string; public readers that prefer it over `activity_date` would see a blank date until someone filled it.
+
+### 3. Fix applied (CMS)
+
+- **Did not add a keep-alive/cron.** No verified pause, no `service_role`, no fake browser cron. If the project is later confirmed Free-tier pausing, the safe option is a GitHub Action (or other external scheduler) doing an anon `GET` on `portfolios` — not implemented here.
+- New activities default to **published** so they pass anon RLS as soon as required bilingual fields + `activity_date` are present.
+- `display_date` is no longer a CMS input; on save it is copied from `activity_date` so older public readers still have a date string.
+
+### 4. Keep-alive / cron
+
+**Not added.** Not verified as necessary. Limitation: if this is a Free project and it pauses after 7 idle days, operators must open the CMS/Supabase dashboard to wake it, or upgrade the plan.
+
+### 5–6. Display date removed; activity_date canonical
+
+- Removed the Display date input from create/edit.
+- DB column `display_date` **kept** (no migration).
+- On create/update, `display_date` is set to the same `YYYY-MM-DD` as `activity_date`.
+- List cards show **Activity date** only.
+- Existing rows still load; the next save aligns `display_date` with `activity_date`.
+
+### 7. Published default
+
+`toFormValues()` with no activity uses `status: 'published'`. Edit still loads `activity.status`.
+
+### 8. Featured default
+
+New activities: `is_featured: true`. Edit loads stored `is_featured` (false stays false).
+
+### 9. Responsive improvements
+
+- Activity pages: `w-full min-w-0 max-w-3xl`
+- Form/grid fields: `min-w-0`; date/datetime inputs cannot force overflow
+- Dashboard `main`: `overflow-x-hidden p-4 sm:p-6`
+- Save button full-width on mobile
+- Cover/gallery uploader: `w-full max-w-*`
+
+### 10. Description textarea sizing
+
+English and Hindi description: `rows={5}`, `min-h-[8rem]` (~128px), `max-h-80`, `resize-y`. Limits unchanged (10000 chars).
+
+### 11. Browser testing
+
+CMS dev server was up on `:5173`. **Authenticated form walkthrough was not completed** — no CMS login credentials in this session. Verified in source and production bundle: the string `Display date` is absent from `dist/`. Defaults and layout are in `toFormValues` / `ActivityForm` as specified.
+
+### 12–14. Quality
+
+- TypeScript (`npx tsc -b --noEmit`) — pass
+- ESLint (`npm run lint`) — pass (no new issues)
+- Build (`npm run build`) — pass (existing >500 kB warning)
+
+### 15. Remaining limitations
+
+- 7–9 day lag is **not claimed fixed**. Cache is not the cause; Free-tier pause is unconfirmed.
+- Authenticated UI tests (new vs edit defaults, cover upload, 375/390 viewports) still need a logged-in CMS session.
+- Sampatiya public website was not modified.
+
+**Files changed:** `ActivityForm.tsx`, `form.ts`, `activitySchema.ts`, `ActivityCreatePage.tsx`, `ActivityEditPage.tsx`, `ActivitiesPage.tsx`, `ActivityCard.tsx`, `ActivityCoverManager.tsx`, `ActivityGalleryManager.tsx`, `ImageUploader.tsx` (mobile max-width), `DashboardLayout.tsx` (overflow/padding), `PROJECT_PROGRESS.md`.
+
+---
+
 ## Still stubbed / deferred
 
 - SEO — table exists, UI intentionally not scheduled
-- Public portfolio websites — out of this repository
+- Public portfolio websites — out of this repository (Sampatiya Activities integration can proceed now that anon SELECT works)
 - Auto-publish job for `status = scheduled` — index exists, no job implemented

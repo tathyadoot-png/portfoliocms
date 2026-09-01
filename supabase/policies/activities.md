@@ -7,11 +7,10 @@ RLS: enabled.
 | Policy | Role | Command | Effect |
 |---|---|---|---|
 | `activities_authenticated_all` | `authenticated` | ALL | Full read/write, including soft-deleted rows. |
+| `activities_anon_select_published` | `anon` | SELECT | `status = published` AND `deleted_at IS NULL` AND parent portfolio is active and not deleted. Draft/scheduled/archived/deleted are not readable. |
 
-`anon`: no policy, no access. When the public site reads this table later,
-add a narrowly-scoped `anon` SELECT policy limited to
-`status = 'published' AND deleted_at IS NULL` — do not widen this policy.
+`anon`: SELECT-only. No INSERT/UPDATE/DELETE.
 
 Table privileges: `authenticated` has SELECT/INSERT/UPDATE/DELETE
 (`migrations/20260825120011_grant_authenticated_cms_table_privileges.sql`).
-`anon` is revoked. RLS policies are not evaluated without these GRANTs.
+`anon` has SELECT only (`migrations/20260826120013_grant_anon_public_read_access.sql`).

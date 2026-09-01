@@ -13,10 +13,9 @@ export function toFormValues(activity?: Activity | null): ActivityFormValues {
     location_en: activity?.location_en ?? '',
     location_hi: activity?.location_hi ?? '',
     activity_date: activity?.activity_date ?? '',
-    display_date: activity?.display_date ?? '',
-    status: activity?.status ?? 'draft',
+    status: activity?.status ?? 'published',
     publish_at: toDatetimeLocal(activity?.publish_at),
-    is_featured: activity?.is_featured ?? false,
+    is_featured: activity?.is_featured ?? true,
     sort_order: activity?.sort_order ?? 0,
   }
 }
@@ -31,7 +30,9 @@ export function toWriteInput(values: ActivityFormValues): ActivityWriteInput {
     location_en: emptyToNull(values.location_en),
     location_hi: emptyToNull(values.location_hi),
     activity_date: emptyToNull(values.activity_date),
-    display_date: emptyToNull(values.display_date),
+    // Canonical date is activity_date. Keep display_date populated for
+    // existing public-site readers without a second CMS input.
+    display_date: emptyToNull(values.activity_date),
     status: values.status,
     publish_at: fromDatetimeLocal(values.publish_at),
     is_featured: values.is_featured,

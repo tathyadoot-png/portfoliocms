@@ -120,10 +120,6 @@ export function ActivityCard({
               <dd>{formatDate(activity.activity_date)}</dd>
             </div>
             <div>
-              <dt className="font-medium text-foreground">Display date</dt>
-              <dd>{activity.display_date || '—'}</dd>
-            </div>
-            <div>
               <dt className="font-medium text-foreground">Location</dt>
               <dd>{activity.location_en || activity.location_hi || '—'}</dd>
             </div>

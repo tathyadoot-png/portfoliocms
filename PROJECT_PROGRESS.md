@@ -6,7 +6,7 @@ Living implementation history. If this file and the code disagree, **the code is
 
 ## Current state
 
-**Phase 7 (Social Links CRUD) is complete.** Anon public-read is in place. Activity create/edit UI was tightened (display date removed, published/featured defaults, responsive form). Sampatiya website integration remains a separate repo.
+**Phase 7 (Social Links CRUD) is complete.** Anon public-read is in place. Activity create now accepts cover/gallery in the same form and auto-generates unique slugs. Sampatiya website integration remains a separate repo.
 
 Next planned work: Sampatiya Activities integration (separate repo). CMS Phase 8 polish remains unscheduled.
 
@@ -427,6 +427,29 @@ CMS dev server was up on `:5173`. **Authenticated form walkthrough was not compl
 - Sampatiya public website was not modified.
 
 **Files changed:** `ActivityForm.tsx`, `form.ts`, `activitySchema.ts`, `ActivityCreatePage.tsx`, `ActivityEditPage.tsx`, `ActivitiesPage.tsx`, `ActivityCard.tsx`, `ActivityCoverManager.tsx`, `ActivityGalleryManager.tsx`, `ImageUploader.tsx` (mobile max-width), `DashboardLayout.tsx` (overflow/padding), `PROJECT_PROGRESS.md`.
+
+---
+
+## Activity create: images + auto slug
+
+- **Create-form media:** New Activity can select a cover and gallery files in the same form. Internally: validate → create activity → unsigned Cloudinary upload (portfolio config) → `media` rows with `role=cover` / `role=gallery` and gallery `sort_order`. No images still creates the activity. If upload fails after create, the activity is kept and the user is sent to Edit with: “Activity was created, but the image upload failed. Please retry the media upload.” Edit cover/gallery workflow is unchanged.
+- **Slug UI:** Slug input removed. New slugs come from English title (else Hindi) via existing `slugify`. Edit never changes the stored slug.
+- **Duplicates:** Uniqueness is per portfolio (`activities(portfolio_id, slug)` where `deleted_at is null`). First try the clean slug; on collision append a random 3–5 character `[a-z0-9]` suffix. Insert unique-violation races retry with a new suffix (limited). Users never see raw Postgres unique errors.
+- **Testing:** `npx tsc -b --noEmit` pass; `npm run lint` pass; `npm run build` pass. Authenticated browser create/upload not run (no CMS credentials in this session).
+- **Limitation:** Live create-with-images and duplicate-slug UI flows still need a logged-in CMS session.
+
+**Files:** `activitiesService.ts`, `ActivityForm.tsx`, `ActivityCreatePage.tsx`, `ActivityEditPage.tsx`, `PendingActivityMedia.tsx`, `attachPendingMedia.ts`, `slug.ts`, `form.ts`, `activitySchema.ts`, `errors.ts`, `media/index.ts` (export `mediaService`).
+
+---
+
+## Activity date defaults, readable dates, local image previews
+
+- **New Activity date:** the date input is prefilled with today's **local** `YYYY-MM-DD` (`localDateYmd()`, not UTC). If the field is cleared, create submit and `activitiesService.create` still fall back to today. Edit loads and preserves the stored date (cleared edit field falls back to the existing value, not today).
+- **Display format:** list/detail use `formatDate()` → `31 August 2026` by parsing `YYYY-MM-DD` parts (no `new Date("YYYY-MM-DD")` timezone shift). Native `<input type="date">` still uses ISO. Display Date field remains removed.
+- **Create-form previews:** pending cover/gallery store `URL.createObjectURL(file)` at select time (not Cloudinary). Images render with `object-cover`. Blob URLs are revoked on replace/remove/unmount. Edit still uses Cloudinary URLs for existing media.
+- **Tests:** typecheck, lint, build pass. Logged-in CMS browser session still unavailable.
+
+**Files:** `datetime.ts`, `form.ts`, `activitiesService.ts`, `ActivityCreatePage.tsx`, `ActivityEditPage.tsx`, `PendingActivityMedia.tsx`, `attachPendingMedia.ts`.
 
 ---
 

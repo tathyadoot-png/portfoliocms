@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { slugSchema, requiredString } from '@/shared/validation'
+import { requiredString } from '@/shared/validation'
 
 const ACTIVITY_STATUS_VALUES = ['draft', 'scheduled', 'published', 'archived'] as const
 
@@ -26,7 +26,6 @@ export const activityFormSchema = z
   .object({
     title_en: requiredString('English title').max(200, 'English title is too long'),
     title_hi: requiredString('Hindi title').max(200, 'Hindi title is too long'),
-    slug: slugSchema,
     description_en: z.string().max(10000, 'English description is too long'),
     description_hi: z.string().max(10000, 'Hindi description is too long'),
     location_en: z.string().max(200, 'English location is too long'),

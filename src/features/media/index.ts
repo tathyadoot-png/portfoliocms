@@ -15,6 +15,7 @@ export { useSoftDeleteMediaMutation } from './hooks/useSoftDeleteMediaMutation'
 export { useRestoreMediaMutation } from './hooks/useRestoreMediaMutation'
 export { useUpdateMediaMetadataMutation } from './hooks/useUpdateMediaMetadataMutation'
 
+export { mediaService } from './services/mediaService'
 export { mediaKeys } from './constants/queryKeys'
 export { MEDIA_ACCEPTED_IMAGE_TYPES, MEDIA_MAX_IMAGE_SIZE_BYTES } from './constants'
 

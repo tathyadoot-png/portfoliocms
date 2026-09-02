@@ -1,5 +1,12 @@
 import { supabase } from '@/shared/lib/supabase'
+import { isUniqueViolation } from '@/shared/utils'
 import { getMissingPublishFields } from '../validation/activitySchema'
+import { localDateYmd } from '../utils/datetime'
+import {
+  baseSlugFromTitles,
+  randomSlugSuffix,
+  slugWithSuffix,
+} from '../utils/slug'
 import type {
   Activity,
   ActivityInsert,
@@ -7,6 +14,9 @@ import type {
   ActivityUpdate,
   ActivityWriteInput,
 } from '../types'
+
+const SLUG_ALLOCATE_ATTEMPTS = 12
+const SLUG_INSERT_RETRIES = 6
 
 function escapeIlikeTerm(search: string): string {
   return search.replaceAll(/[,()%]/g, ' ').trim()
@@ -51,6 +61,44 @@ function assertCanPublish(activity: Activity): void {
       `Cannot publish until these fields are filled: ${missing.join(', ')}`,
     )
   }
+}
+
+async function slugExists(
+  portfolioId: string,
+  slug: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('activities')
+    .select('id')
+    .eq('portfolio_id', portfolioId)
+    .eq('slug', slug)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (error) throw error
+  return Boolean(data)
+}
+
+async function allocateUniqueSlug(
+  portfolioId: string,
+  titleEn: string,
+  titleHi: string,
+  forceSuffix = false,
+): Promise<string> {
+  const base = baseSlugFromTitles(titleEn, titleHi)
+
+  if (!forceSuffix && !(await slugExists(portfolioId, base))) {
+    return base
+  }
+
+  for (let attempt = 0; attempt < SLUG_ALLOCATE_ATTEMPTS; attempt += 1) {
+    const candidate = slugWithSuffix(base, randomSlugSuffix())
+    if (!(await slugExists(portfolioId, candidate))) {
+      return candidate
+    }
+  }
+
+  throw new Error('Could not generate a unique slug. Please try again.')
 }
 
 function assertCanSchedule(activity: Activity, publishAt: string): void {
@@ -151,17 +199,25 @@ export const activitiesService = {
       }
     }
 
+    let slug = await allocateUniqueSlug(
+      portfolioId,
+      input.title_en,
+      input.title_hi,
+    )
+
+    const activityDate = input.activity_date?.trim() || localDateYmd()
+
     const payload: ActivityInsert = {
       portfolio_id: portfolioId,
-      slug: input.slug,
+      slug,
       title_en: input.title_en,
       title_hi: input.title_hi,
       description_en: input.description_en,
       description_hi: input.description_hi,
       location_en: input.location_en,
       location_hi: input.location_hi,
-      activity_date: input.activity_date,
-      display_date: input.display_date,
+      activity_date: activityDate,
+      display_date: input.display_date?.trim() || activityDate,
       status: publishing.status,
       publish_at: publishing.publish_at,
       is_featured: input.is_featured,
@@ -169,14 +225,29 @@ export const activitiesService = {
       created_by: userId,
     }
 
-    const { data, error } = await supabase
-      .from('activities')
-      .insert(payload)
-      .select('*')
-      .single()
+    for (let attempt = 0; attempt < SLUG_INSERT_RETRIES; attempt += 1) {
+      payload.slug = slug
+      const { data, error } = await supabase
+        .from('activities')
+        .insert(payload)
+        .select('*')
+        .single()
 
-    if (error) throw error
-    return data
+      if (!error) return data
+
+      if (!isUniqueViolation(error) || attempt === SLUG_INSERT_RETRIES - 1) {
+        throw error
+      }
+
+      slug = await allocateUniqueSlug(
+        portfolioId,
+        input.title_en,
+        input.title_hi,
+        true,
+      )
+    }
+
+    throw new Error('Could not generate a unique slug. Please try again.')
   },
 
   async update(

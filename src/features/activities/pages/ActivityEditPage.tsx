@@ -23,7 +23,7 @@ import { useActivityQuery } from '../hooks/useActivityQuery'
 import { useUpdateActivityMutation } from '../hooks/useUpdateActivityMutation'
 import { toFormValues, toWriteInput } from '../utils/form'
 import { getFriendlyActivityError } from '../utils/errors'
-import { formatDateTime } from '../utils/datetime'
+import { formatDate, formatDateTime } from '../utils/datetime'
 import type { ActivityFormValues } from '../validation/activitySchema'
 
 export function ActivityEditPage() {
@@ -54,8 +54,13 @@ export function ActivityEditPage() {
     : null
 
   const handleSubmit = async (values: ActivityFormValues) => {
+    if (!data) return
     try {
-      await mutateAsync(toWriteInput(values))
+      await mutateAsync(
+        toWriteInput(values, data.slug, {
+          existingActivityDate: data.activity_date,
+        }),
+      )
       toast.success('Activity saved')
     } catch (error) {
       toast.error(getFriendlyActivityError(error))
@@ -139,6 +144,10 @@ export function ActivityEditPage() {
               <div>
                 <dt className="text-muted-foreground">Featured</dt>
                 <dd>{data.is_featured ? 'Yes' : 'No'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Activity date</dt>
+                <dd>{formatDate(data.activity_date)}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Created</dt>

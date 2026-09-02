@@ -12,7 +12,6 @@ import {
   Textarea,
 } from '@/shared/components/ui'
 import { FormField } from '@/shared/components/form'
-import { slugify } from '@/shared/utils'
 import { ACTIVITY_STATUSES } from '../constants'
 import {
   activityFormSchema,
@@ -21,12 +20,19 @@ import {
 } from '../validation/activitySchema'
 import { ActivityCoverManager } from './ActivityCoverManager'
 import { ActivityGalleryManager } from './ActivityGalleryManager'
+import {
+  PendingActivityMedia,
+  type PendingActivityMediaValue,
+} from './PendingActivityMedia'
 
 export interface ActivityFormProps {
   portfolioId: string
   activityId?: string
   defaultValues: ActivityFormValues
-  onSubmit: (values: ActivityFormValues) => Promise<void>
+  onSubmit: (
+    values: ActivityFormValues,
+    pendingMedia?: PendingActivityMediaValue,
+  ) => Promise<void>
   isSubmitting: boolean
   submitLabel: string
   cloudinaryConfig: {
@@ -45,13 +51,15 @@ export function ActivityForm({
   submitLabel,
   cloudinaryConfig,
 }: ActivityFormProps) {
-  const [slugEdited, setSlugEdited] = useState(Boolean(defaultValues.slug))
+  const [pendingMedia, setPendingMedia] = useState<PendingActivityMediaValue>({
+    cover: null,
+    gallery: [],
+  })
 
   const {
     control,
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<ActivityFormValues>({
     resolver: zodResolver(activityFormSchema),
@@ -65,34 +73,13 @@ export function ActivityForm({
       ? getMissingPublishFields(liveValues)
       : []
 
-  const titleField = register('title_en')
-
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={handleSubmit((values) =>
+        onSubmit(values, activityId ? undefined : pendingMedia),
+      )}
       className="flex min-w-0 w-full flex-col gap-6"
     >
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Basic information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FormField
-            htmlFor="slug"
-            label="Slug"
-            required
-            hint="Unique per portfolio. Auto-filled from the English title until you edit it."
-            error={errors.slug?.message}
-          >
-            <Input
-              id="slug"
-              {...register('slug')}
-              onInput={() => setSlugEdited(true)}
-            />
-          </FormField>
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader>
           <CardTitle className="text-base">English content</CardTitle>
@@ -104,18 +91,7 @@ export function ActivityForm({
             required
             error={errors.title_en?.message}
           >
-            <Input
-              id="title_en"
-              {...titleField}
-              onChange={(event) => {
-                titleField.onChange(event)
-                if (!slugEdited) {
-                  setValue('slug', slugify(event.target.value), {
-                    shouldValidate: true,
-                  })
-                }
-              }}
-            />
+            <Input id="title_en" {...register('title_en')} />
           </FormField>
           <FormField
             htmlFor="description_en"
@@ -252,7 +228,7 @@ export function ActivityForm({
         <CardHeader>
           <CardTitle className="text-base">Media</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-6">
+        <CardContent className="flex min-w-0 flex-col gap-6">
           {activityId ? (
             <>
               <div>
@@ -277,10 +253,12 @@ export function ActivityForm({
               </div>
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Save the activity first, then you can upload a cover image and
-              gallery. Cloudinary assets stay in this portfolio's account.
-            </p>
+            <PendingActivityMedia
+              value={pendingMedia}
+              onChange={setPendingMedia}
+              disabled={isSubmitting}
+              cloudinaryConfigured={Boolean(cloudinaryConfig)}
+            />
           )}
         </CardContent>
       </Card>

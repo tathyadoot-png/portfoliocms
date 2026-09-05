@@ -18,12 +18,12 @@ import {
   getMissingPublishFields,
   type ActivityFormValues,
 } from '../validation/activitySchema'
-import { ActivityCoverManager } from './ActivityCoverManager'
-import { ActivityGalleryManager } from './ActivityGalleryManager'
+import { ActivityImagesField } from './ActivityImagesField'
 import {
-  PendingActivityMedia,
-  type PendingActivityMediaValue,
-} from './PendingActivityMedia'
+  EMPTY_ACTIVITY_IMAGES,
+  EMPTY_ACTIVITY_IMAGES_CREATE,
+  type ActivityImagesValue,
+} from '../utils/activityImages'
 
 export interface ActivityFormProps {
   portfolioId: string
@@ -31,7 +31,7 @@ export interface ActivityFormProps {
   defaultValues: ActivityFormValues
   onSubmit: (
     values: ActivityFormValues,
-    pendingMedia?: PendingActivityMediaValue,
+    images: ActivityImagesValue,
   ) => Promise<void>
   isSubmitting: boolean
   submitLabel: string
@@ -51,10 +51,9 @@ export function ActivityForm({
   submitLabel,
   cloudinaryConfig,
 }: ActivityFormProps) {
-  const [pendingMedia, setPendingMedia] = useState<PendingActivityMediaValue>({
-    cover: null,
-    gallery: [],
-  })
+  const [images, setImages] = useState<ActivityImagesValue>(
+    activityId ? EMPTY_ACTIVITY_IMAGES : EMPTY_ACTIVITY_IMAGES_CREATE,
+  )
 
   const {
     control,
@@ -75,9 +74,7 @@ export function ActivityForm({
 
   return (
     <form
-      onSubmit={handleSubmit((values) =>
-        onSubmit(values, activityId ? undefined : pendingMedia),
-      )}
+      onSubmit={handleSubmit((values) => onSubmit(values, images))}
       className="flex min-w-0 w-full flex-col gap-6"
     >
       <Card>
@@ -229,37 +226,14 @@ export function ActivityForm({
           <CardTitle className="text-base">Media</CardTitle>
         </CardHeader>
         <CardContent className="flex min-w-0 flex-col gap-6">
-          {activityId ? (
-            <>
-              <div>
-                <p className="mb-2 text-sm font-medium text-foreground">
-                  Cover image
-                </p>
-                <ActivityCoverManager
-                  portfolioId={portfolioId}
-                  activityId={activityId}
-                  cloudinaryConfig={cloudinaryConfig}
-                />
-              </div>
-              <div>
-                <p className="mb-2 text-sm font-medium text-foreground">
-                  Gallery
-                </p>
-                <ActivityGalleryManager
-                  portfolioId={portfolioId}
-                  activityId={activityId}
-                  cloudinaryConfig={cloudinaryConfig}
-                />
-              </div>
-            </>
-          ) : (
-            <PendingActivityMedia
-              value={pendingMedia}
-              onChange={setPendingMedia}
-              disabled={isSubmitting}
-              cloudinaryConfigured={Boolean(cloudinaryConfig)}
-            />
-          )}
+          <ActivityImagesField
+            portfolioId={portfolioId}
+            activityId={activityId}
+            value={images}
+            onChange={setImages}
+            disabled={isSubmitting}
+            cloudinaryConfigured={Boolean(cloudinaryConfig)}
+          />
         </CardContent>
       </Card>
 

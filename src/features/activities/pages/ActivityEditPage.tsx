@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -18,13 +19,17 @@ import { ROUTES } from '@/shared/constants'
 import { cn } from '@/shared/utils'
 import { useActivePortfolio } from '@/features/portfolios'
 import { useCloudinaryConfigQuery } from '@/features/cloudinary-settings'
+import { mediaKeys, mediaService } from '@/features/media'
+import { useQueryClient } from '@tanstack/react-query'
 import { ActivityForm } from '../components/ActivityForm'
 import { useActivityQuery } from '../hooks/useActivityQuery'
 import { useUpdateActivityMutation } from '../hooks/useUpdateActivityMutation'
 import { toFormValues, toWriteInput } from '../utils/form'
+import { persistActivityImages } from '../utils/attachPendingMedia'
 import { getFriendlyActivityError } from '../utils/errors'
 import { formatDate, formatDateTime } from '../utils/datetime'
 import type { ActivityFormValues } from '../validation/activitySchema'
+import type { ActivityImagesValue } from '../utils/activityImages'
 
 export function ActivityEditPage() {
   const portfolio = useActivePortfolio()
@@ -43,6 +48,9 @@ export function ActivityEditPage() {
     portfolio.id,
     activityId,
   )
+  const queryClient = useQueryClient()
+  const [attachingMedia, setAttachingMedia] = useState(false)
+  const [mediaEpoch, setMediaEpoch] = useState(0)
   const { data: cloudinaryConfigRow } = useCloudinaryConfigQuery(portfolio.id)
 
   const cloudinaryConfig = cloudinaryConfigRow
@@ -53,7 +61,10 @@ export function ActivityEditPage() {
       }
     : null
 
-  const handleSubmit = async (values: ActivityFormValues) => {
+  const handleSubmit = async (
+    values: ActivityFormValues,
+    images: ActivityImagesValue,
+  ) => {
     if (!data) return
     try {
       await mutateAsync(
@@ -61,8 +72,35 @@ export function ActivityEditPage() {
           existingActivityDate: data.activity_date,
         }),
       )
+
+      if (cloudinaryConfig && images.hydrated) {
+        setAttachingMedia(true)
+        const existing = await mediaService.listActivityImages(
+          portfolio.id,
+          data.id,
+        )
+        await persistActivityImages(
+          portfolio.id,
+          data.id,
+          cloudinaryConfig,
+          images,
+          existing,
+        )
+        await queryClient.invalidateQueries({
+          queryKey: mediaKeys.all(portfolio.id),
+        })
+        setAttachingMedia(false)
+        setMediaEpoch((epoch) => epoch + 1)
+      } else if (images.items.some((item) => item.kind === 'pending')) {
+        toast.error(
+          'Activity was saved, but new images could not be uploaded. Configure Cloudinary and retry.',
+        )
+        return
+      }
+
       toast.success('Activity saved')
     } catch (error) {
+      setAttachingMedia(false)
       toast.error(getFriendlyActivityError(error))
     }
   }
@@ -177,12 +215,12 @@ export function ActivityEditPage() {
       </div>
 
       <ActivityForm
-        key={data.id}
+        key={`${data.id}-${mediaEpoch}`}
         portfolioId={portfolio.id}
         activityId={data.id}
         defaultValues={toFormValues(data)}
         onSubmit={handleSubmit}
-        isSubmitting={isPending}
+        isSubmitting={isPending || attachingMedia}
         submitLabel="Save activity"
         cloudinaryConfig={cloudinaryConfig}
       />

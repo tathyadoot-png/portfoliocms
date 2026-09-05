@@ -6,7 +6,7 @@ Living implementation history. If this file and the code disagree, **the code is
 
 ## Current state
 
-**Phase 7 (Social Links CRUD) is complete.** Anon public-read is in place. Activity create now accepts cover/gallery in the same form and auto-generates unique slugs. Sampatiya website integration remains a separate repo.
+**Phase 7 (Social Links CRUD) is complete.** Activity create/edit uses one unified image picker (Cover is a selection, not a separate uploader). Anon public-read is in place. Sampatiya website integration remains a separate repo.
 
 Next planned work: Sampatiya Activities integration (separate repo). CMS Phase 8 polish remains unscheduled.
 
@@ -450,6 +450,19 @@ CMS dev server was up on `:5173`. **Authenticated form walkthrough was not compl
 - **Tests:** typecheck, lint, build pass. Logged-in CMS browser session still unavailable.
 
 **Files:** `datetime.ts`, `form.ts`, `activitiesService.ts`, `ActivityCreatePage.tsx`, `ActivityEditPage.tsx`, `PendingActivityMedia.tsx`, `attachPendingMedia.ts`.
+
+---
+
+## Unified activity images (Cover selection)
+
+- Create and Edit share one Images area. No separate Cover Image vs Gallery uploaders on the form.
+- Selecting files shows local blob previews immediately; first image is Cover by default. Exclusive Cover radio; changing Cover updates only `media.role`.
+- Removing the Cover image auto-selects the first remaining image. A single image is always Cover.
+- On submit, every image is saved. Selected Cover → `role = cover`; others → `role = gallery`; `sort_order` follows the visible list. Schema unchanged.
+- Edit loads existing cover + gallery, keeps gallery unless removed, remounts the field after save so pending files are not re-uploaded.
+- Blob URLs revoked on remove/unmount.
+
+**Files:** `ActivityImagesField.tsx`, `ActivityForm.tsx`, `ActivityCreatePage.tsx`, `ActivityEditPage.tsx`, `attachPendingMedia.ts`, `mediaService.ts` (`listActivityImages`, `insertActivityImage`, `applyActivityImageRoles`), `useActivityImagesQuery.ts`.
 
 ---
 

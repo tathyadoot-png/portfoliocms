@@ -1,8 +1,8 @@
 import { createCloudinaryUploader } from '@/shared/lib/cloudinary'
-import { mediaService } from '@/features/media'
-import type { PendingActivityMediaValue } from '../components/PendingActivityMedia'
+import { mediaService, type Media } from '@/features/media'
+import type { ActivityImagesValue } from './activityImages'
 
-export async function attachPendingActivityMedia(
+export async function persistActivityImages(
   portfolioId: string,
   activityId: string,
   cloudinaryConfig: {
@@ -10,7 +10,8 @@ export async function attachPendingActivityMedia(
     uploadPreset: string
     defaultFolder?: string | null
   },
-  pending: PendingActivityMediaValue,
+  value: ActivityImagesValue,
+  existing: Media[],
 ): Promise<void> {
   const uploader = createCloudinaryUploader({
     cloudName: cloudinaryConfig.cloudName,
@@ -18,25 +19,59 @@ export async function attachPendingActivityMedia(
     defaultFolder: cloudinaryConfig.defaultFolder,
   })
 
-  const folderPrefix = [cloudinaryConfig.defaultFolder, 'activities', activityId]
+  const folder = [cloudinaryConfig.defaultFolder, 'activities', activityId]
     .filter((segment): segment is string => Boolean(segment))
     .join('/')
 
-  if (pending.cover) {
-    const coverUpload = await uploader.upload(pending.cover.file, {
-      folder: `${folderPrefix}/cover`,
-    })
-    await mediaService.replaceActivityCover(portfolioId, activityId, coverUpload)
+  const keptExistingIds = new Set(
+    value.items
+      .filter((item) => item.kind === 'existing')
+      .map((item) => item.mediaId),
+  )
+
+  for (const row of existing) {
+    if (!keptExistingIds.has(row.id)) {
+      await mediaService.softDelete(row.id)
+    }
   }
 
-  for (const item of pending.gallery) {
-    const galleryUpload = await uploader.upload(item.file, {
-      folder: `${folderPrefix}/gallery`,
-    })
-    await mediaService.addActivityGalleryImage(
+  if (value.items.length === 0) {
+    return
+  }
+
+  const resolvedIds: string[] = []
+
+  for (let index = 0; index < value.items.length; index += 1) {
+    const item = value.items[index]
+    const isCover = item.key === value.coverKey
+    const role = isCover ? 'cover' : 'gallery'
+
+    if (item.kind === 'existing') {
+      resolvedIds.push(item.mediaId)
+      continue
+    }
+
+    const upload = await uploader.upload(item.file, { folder })
+    const inserted = await mediaService.insertActivityImage(
       portfolioId,
       activityId,
-      galleryUpload,
+      upload,
+      role,
+      index,
     )
+    resolvedIds.push(inserted.id)
   }
+
+  const coverIndex = value.items.findIndex((item) => item.key === value.coverKey)
+  const coverResolvedIndex = coverIndex >= 0 ? coverIndex : 0
+
+  await mediaService.applyActivityImageRoles(
+    portfolioId,
+    activityId,
+    resolvedIds.map((id, index) => ({
+      id,
+      role: index === coverResolvedIndex ? 'cover' : 'gallery',
+      sortOrder: index,
+    })),
+  )
 }

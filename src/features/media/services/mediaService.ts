@@ -211,6 +211,87 @@ export const mediaService = {
   },
 
   /**
+   * Cover + gallery images for one activity. Cover is listed first, then
+   * gallery by sort_order, so the unified picker can restore the current cover.
+   */
+  async listActivityImages(
+    portfolioId: string,
+    activityId: string,
+  ): Promise<Media[]> {
+    const rows = await mediaService.list(portfolioId, { activityId })
+    const images = rows.filter(
+      (row) => row.role === 'cover' || row.role === 'gallery',
+    )
+    const cover = images.filter((row) => row.role === 'cover')
+    const gallery = images
+      .filter((row) => row.role === 'gallery')
+      .sort((a, b) => a.sort_order - b.sort_order)
+    return [...cover, ...gallery]
+  },
+
+  async insertActivityImage(
+    portfolioId: string,
+    activityId: string,
+    upload: CloudinaryUploadResult,
+    role: 'cover' | 'gallery',
+    sortOrder: number,
+  ): Promise<Media> {
+    const payload: MediaInsert = {
+      portfolio_id: portfolioId,
+      activity_id: activityId,
+      role,
+      kind: 'image',
+      cloudinary_public_id: upload.publicId,
+      cloudinary_secure_url: upload.secureUrl,
+      width: upload.width,
+      height: upload.height,
+      format: upload.format,
+      bytes: upload.bytes,
+      sort_order: sortOrder,
+    }
+
+    const { data, error } = await supabase
+      .from('media')
+      .insert(payload)
+      .select('*')
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  /**
+   * Sets cover vs gallery and sort_order for the given activity images.
+   * Demotes every current cover first so at most one cover remains.
+   */
+  async applyActivityImageRoles(
+    portfolioId: string,
+    activityId: string,
+    items: { id: string; role: 'cover' | 'gallery'; sortOrder: number }[],
+  ): Promise<void> {
+    const { error: demoteError } = await supabase
+      .from('media')
+      .update({ role: 'gallery' })
+      .eq('portfolio_id', portfolioId)
+      .eq('activity_id', activityId)
+      .eq('role', 'cover')
+      .is('deleted_at', null)
+
+    if (demoteError) throw demoteError
+
+    for (const item of items) {
+      const { error } = await supabase
+        .from('media')
+        .update({ role: item.role, sort_order: item.sortOrder })
+        .eq('id', item.id)
+        .eq('portfolio_id', portfolioId)
+        .eq('activity_id', activityId)
+
+      if (error) throw error
+    }
+  },
+
+  /**
    * Replaces the active activity cover: insert the new row first, then
    * soft-delete the previous cover. Cloudinary assets are never destroyed.
    */

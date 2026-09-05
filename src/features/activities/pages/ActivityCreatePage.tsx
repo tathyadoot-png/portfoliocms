@@ -11,10 +11,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { mediaKeys } from '@/features/media'
 import { useCreateActivityMutation } from '../hooks/useCreateActivityMutation'
 import { toFormValues, toWriteInput } from '../utils/form'
-import { attachPendingActivityMedia } from '../utils/attachPendingMedia'
+import { persistActivityImages } from '../utils/attachPendingMedia'
 import { getFriendlyActivityError } from '../utils/errors'
 import type { ActivityFormValues } from '../validation/activitySchema'
-import type { PendingActivityMediaValue } from '../components/PendingActivityMedia'
+import type { ActivityImagesValue } from '../utils/activityImages'
 
 export function ActivityCreatePage() {
   const portfolio = useActivePortfolio()
@@ -34,7 +34,7 @@ export function ActivityCreatePage() {
 
   const handleSubmit = async (
     values: ActivityFormValues,
-    pendingMedia?: PendingActivityMediaValue,
+    images: ActivityImagesValue,
   ) => {
     let activityId: string | null = null
     try {
@@ -43,17 +43,16 @@ export function ActivityCreatePage() {
       )
       activityId = activity.id
 
-      const hasPendingMedia = Boolean(
-        pendingMedia?.cover || (pendingMedia?.gallery.length ?? 0) > 0,
-      )
+      const hasPendingMedia = images.items.length > 0
 
       if (hasPendingMedia && cloudinaryConfig) {
         setAttachingMedia(true)
-        await attachPendingActivityMedia(
+        await persistActivityImages(
           portfolio.id,
           activity.id,
           cloudinaryConfig,
-          pendingMedia ?? { cover: null, gallery: [] },
+          images,
+          [],
         )
         await queryClient.invalidateQueries({
           queryKey: mediaKeys.all(portfolio.id),
